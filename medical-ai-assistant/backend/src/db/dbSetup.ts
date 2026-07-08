@@ -2,14 +2,14 @@ import Database from "better-sqlite3";
 import path from "path";
 
 const dbPath = path.join(process.cwd(), "medical_sessions.db");
-export const dbSetup: any = new Database(dbPath);
+export const db: any = new Database(dbPath);
 
 // Enable foreign keys
-dbSetup.pragma("foreign_keys = ON");
+db.pragma("foreign_keys = ON");
 
 // Create tables
 export function initializeDb() {
-  dbSetup.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       patientInput TEXT NOT NULL,

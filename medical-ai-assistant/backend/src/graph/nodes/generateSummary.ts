@@ -6,8 +6,13 @@ export async function generateSummary(
   state: typeof GraphStateAnnotation.State,
 ) {
   console.log("Generating summary");
+  const hasFollowup = state.followupAnswers && state.followupAnswers.length > 0;
+  const followupContext = hasFollowup
+    ? `Additional information: ${state.followupAnswers.join(", ")}`
+    : "";
   const prompt = `Generate a concise clinician-friendly summary based only on the provided information.
         Primary Symptoms: ${state.symptoms}
+        Follow-up Information: ${followupContext}
         Urgency Classification: ${state.urgency}
         Confidence Score: ${state.confidence}%
         Rules:

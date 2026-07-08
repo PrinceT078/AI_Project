@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from "express";
 import router from "./routers/router.js";
+import { initializeDb } from "./db/dbSetup.ts";
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -7,6 +8,7 @@ app.use(express.json());
 
 app.use("/", router);
 
+initializeDb();
 // app.get("/health", (_req, res) => {
 //   res.json({ status: "ok" });
 // });

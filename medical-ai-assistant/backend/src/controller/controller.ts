@@ -105,14 +105,15 @@ class OllamaController {
       state = {
         ...state,
         followupAnswers,
-        patientInput: `${state.patientInput} Additional info: ${followupAnswers.join(", ")}`,
       };
+      // patientInput: `${state.patientInput} Additional info: ${followupAnswers.join(", ")}`,
 
       // Re-run from classifyUrgency onwards
       const result = await classifyUrgency(state);
       const finalResult = await generateSummary(result);
 
-      clearSession(sessionId);
+      // clearSession(sessionId);
+      saveSession(sessionId, finalResult);
 
       return res.json({
         urgency: finalResult.urgency,
