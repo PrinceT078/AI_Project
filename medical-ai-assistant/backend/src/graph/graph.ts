@@ -6,13 +6,7 @@ import { generateSummary } from "./nodes/generateSummary.ts";
 import { validateInput } from "./nodes/validateInput.ts";
 import { requiresFollowup } from "./nodes/requireFollowup.ts";
 import { askFollowup } from "./nodes/askFollowup.ts";
-
-const EXTRACT_SYMPTOMS = "extractSymptoms" as any;
-const CLASSIFY_URGENCY = "classifyUrgency" as any;
-const GENERATE_SUMMARY = "generateSummary" as any;
-const VALIDATE_INPUT = "validateInput" as any;
-const REQUIRES_FOLLOWUP = "checkFollowupRequired" as any;
-const ASK_FOLLOWUP = "askFollowup" as any;
+import { ASK_FOLLOWUP, CLASSIFY_URGENCY, EXTRACT_SYMPTOMS, GENERATE_SUMMARY, REQUIRES_FOLLOWUP, VALIDATE_INPUT } from "../utils/constant.ts";
 
 const workflow = new StateGraph(GraphStateAnnotation);
 workflow.addNode(VALIDATE_INPUT, validateInput);

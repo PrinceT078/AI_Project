@@ -1,6 +1,8 @@
 import { Ollama } from "ollama";
 import type { GraphStateAnnotation } from "../state.js";
 import { ollama } from "../../utils/ollamaClient.ts";
+import { checkpointer } from "../../db/checkpointer.ts";
+import { GENERATE_SUMMARY } from "../../utils/constant.ts";
 
 export async function generateSummary(
   state: typeof GraphStateAnnotation.State,
@@ -43,8 +45,10 @@ export async function generateSummary(
     prompt,
   });
 
-  return {
+  const result = {
     ...state,
     summary: response.response,
   };
+  checkpointer.saveCheckpoint(state.sessionId, GENERATE_SUMMARY, result);
+  return result;
 }

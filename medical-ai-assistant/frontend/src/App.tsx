@@ -1,122 +1,121 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react";
+import { SymptomForm } from "./components/SymptomForm";
+import { FollowupForm } from "./components/FollowupForm";
+import { SummaryView } from "./components/SummaryView";
+import { LoadingSpinner } from "./components/LoadingSpinner";
+import { submitSymptoms, submitFollowupAnswers } from "./api/client";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+type Stage = "input" | "followup" | "summary";
+
+export default function App() {
+  const [stage, setStage] = useState<Stage>("input");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Session data
+  const [sessionId, setSessionId] = useState<string>("");
+  const [followupQuestions, setFollowupQuestions] = useState<string[]>([]);
+
+  // Summary data
+  const [summary, setSummary] = useState({
+    urgency: "",
+    confidence: 0,
+    summary: "",
+  });
+
+  const handleSymptomSubmit = async (symptoms: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await submitSymptoms(symptoms);
+      setSessionId(response.sessionId);
+
+      if (response.requiresFollowup) {
+        setFollowupQuestions(response.followupQuestions || []);
+        setStage("followup");
+      } else {
+        setSummary({
+          urgency: response.urgency || "",
+          confidence: response.confidence || 0,
+          summary: response.summary || "",
+        });
+        setStage("summary");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFollowupSubmit = async (answers: string[]) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await submitFollowupAnswers(sessionId, answers);
+      setSummary({
+        urgency: response.urgency,
+        confidence: response.confidence,
+        summary: response.summary,
+      });
+      setStage("summary");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setStage("input");
+    setSessionId("");
+    setFollowupQuestions([]);
+    setSummary({ urgency: "", confidence: 0, summary: "" });
+    setError(null);
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <header className="app-header">
+        <h1>Medical AI Assistant</h1>
+        <p>Symptom Assessment Tool</p>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="app-main">
+        {error && <div className="error-message">{error}</div>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {isLoading ? (
+          <LoadingSpinner
+            message={
+              stage === "followup"
+                ? "Processing your answers..."
+                : "Analyzing your symptoms..."
+            }
+          />
+        ) : stage === "input" ? (
+          <SymptomForm onSubmit={handleSymptomSubmit} isLoading={isLoading} />
+        ) : stage === "followup" ? (
+          <FollowupForm
+            questions={followupQuestions}
+            onSubmit={handleFollowupSubmit}
+            isLoading={isLoading}
+          />
+        ) : (
+          <SummaryView
+            urgency={summary.urgency}
+            confidence={summary.confidence}
+            summary={summary.summary}
+            onReset={handleReset}
+          />
+        )}
+      </main>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <footer className="app-footer">
+        <p>⚠️ Disclaimer: This is not a medical diagnosis. Please consult a healthcare professional.</p>
+      </footer>
+    </div>
+  );
 }
-
-export default App

@@ -3,9 +3,14 @@ import { Ollama } from "ollama";
 import { graph } from "../graph/graph.ts";
 import { validateInput } from "../graph/nodes/validateInput.ts";
 import { v4 as uuidv4 } from "uuid";
-import { clearSession, getSession, saveSession } from "../utils/sessionHelper.ts";
+import {
+  clearSession,
+  getSession,
+  saveSession,
+} from "../utils/sessionHelper.ts";
 import { classifyUrgency } from "../graph/nodes/classifyUrgency.ts";
 import { generateSummary } from "../graph/nodes/generateSummary.ts";
+import { checkpointer } from "../db/checkpointer.ts";
 
 class OllamaController {
   private ollama: Ollama;
@@ -114,6 +119,7 @@ class OllamaController {
 
       // clearSession(sessionId);
       saveSession(sessionId, finalResult);
+      checkpointer.clearCheckpoints(sessionId); // Cleanup checkpoints
 
       return res.json({
         urgency: finalResult.urgency,

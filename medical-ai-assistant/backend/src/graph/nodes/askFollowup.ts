@@ -1,3 +1,5 @@
+import { checkpointer } from "../../db/checkpointer.ts";
+import { ASK_FOLLOWUP } from "../../utils/constant.ts";
 import { ollama } from "../../utils/ollamaClient.js";
 import type { GraphStateAnnotation } from "../state.js";
 
@@ -18,10 +20,12 @@ export async function askFollowup(state: typeof GraphStateAnnotation.State) {
 
   try {
     const questions = JSON.parse(jsonStr);
-    return {
+    const result = {
       ...state,
       followupQuestions: questions,
     };
+    checkpointer.saveCheckpoint(state.sessionId, ASK_FOLLOWUP, result);
+    return result;
   } catch {
     console.error(
       "Error while generating follow-up questions. Returning default question.",

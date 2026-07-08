@@ -1,11 +1,15 @@
 import express, { type Request, type Response } from "express";
+import cors from "cors";
 import router from "./routers/router.js";
 import { initializeDb } from "./db/dbSetup.ts";
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true,
+}));
 app.use(express.json());
-
 app.use("/", router);
 
 initializeDb();
