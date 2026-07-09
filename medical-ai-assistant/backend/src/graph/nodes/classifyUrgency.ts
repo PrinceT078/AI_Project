@@ -12,6 +12,10 @@ export async function classifyUrgency(
   //     Return response in JSON format :
   //     {"urgency": "LOW|MEDIUM|HIGH", "confidence": 0-100}
   //     `;
+  if(state.symptoms.length == 0){
+    throw new Error("No symptoms found");
+  }
+  
   const prompt = `You are a medical triage assistant.
 
         Based only on the provided symptoms, classify the urgency level.

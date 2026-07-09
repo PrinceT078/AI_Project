@@ -88,7 +88,7 @@ class OllamaController {
       );
       return res
         .status(500)
-        .json({ error: error.patientInput || "Internal Server Error" });
+        .json({ error: error.message || "Internal Server Error" });
     }
   }
 
