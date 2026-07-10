@@ -15,16 +15,20 @@ export async function classifyUrgency(
   // if(state.symptoms.length == 0){
   //   throw new Error("No symptoms found");
   // }
-  
+  const followupContext =
+    state.followupAnswers && state.followupAnswers.length > 0
+      ? `\n        Additional information from patient follow-up:\n        ${state.followupAnswers.join("\n        ")}`
+      : "";
+
   const prompt = `You are a medical triage assistant.
 
-        Based only on the provided symptoms, classify the urgency level.
+        Based only on the provided symptoms and any additional follow-up information, classify the urgency level.
 
         Symptoms:
-        ${state.symptoms.join(", ")}
+        ${state.symptoms.join(", ")}${followupContext}
 
         Rules:
-        - Use only the provided symptoms.
+        - Use only the provided symptoms and additional follow-up information.
         - Do not infer additional symptoms or diagnoses.
         - Do not provide explanations, reasoning, or recommendations.
         - Return only valid JSON.

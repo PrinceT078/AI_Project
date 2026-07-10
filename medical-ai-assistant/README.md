@@ -126,6 +126,31 @@ The frontend runs on: http://localhost:5173
 
 Open the frontend URL in your browser and submit a symptom description.
 
+## Graph Diagram
+
+The diagram below reflects the compiled LangGraph topology — nodes, conditional branches, and the retry loop.
+
+```mermaid
+flowchart TD
+    START(["__start__"]) --> validateInput
+
+    validateInput --> extractSymptoms
+
+    extractSymptoms --> validateSymptoms
+
+    validateSymptoms -->|"symptoms found"| classifyUrgency
+    validateSymptoms -->|"no symptoms · retryCount ≤ maxRetries"| extractSymptoms
+    validateSymptoms -->|"no symptoms · retries exhausted"| generateSummary
+
+    classifyUrgency --> checkFollowupRequired
+
+    checkFollowupRequired -->|"confidence ≥ 70"| generateSummary
+    checkFollowupRequired -->|"confidence < 70"| askFollowup
+
+    askFollowup --> END(["__end__"])
+    generateSummary --> END
+```
+
 ## Architecture
 
 ```text
@@ -170,6 +195,24 @@ LangGraph Workflow
               ▼
 API Response → React Frontend
 ```
+
+## State Schema
+
+The graph state is defined in [backend/src/graph/state.ts](backend/src/graph/state.ts) using `Annotation.Root`. Every node reads from and/or writes to this shared object.
+
+| Field | Type | Written by | Description |
+|---|---|---|---|
+| `patientInput` | `string` | `validateInput` | Raw symptom description entered by the patient, trimmed of whitespace. |
+| `sessionId` | `string` | Controller (at invocation) | UUID that identifies the session across the HTTP boundary. |
+| `symptoms` | `string[]` | `extractSymptoms`, `validateSymptoms` | Symptom strings extracted from `patientInput`. Empty until extraction succeeds. |
+| `followupQuestions` | `string[]` | `askFollowup` | 1–3 clarifying questions generated when confidence is below 70. |
+| `followupAnswers` | `string[]` | Controller (`processFollowupAnswers`) | Patient's answers to the follow-up questions, submitted via `POST /followup/answers`. |
+| `requiresFollowup` | `boolean` | `checkFollowupRequired` | `true` when `confidence < 70`; drives the conditional edge after urgency classification. |
+| `urgency` | `"LOW" \| "MEDIUM" \| "HIGH"` | `classifyUrgency` | Urgency tier returned by the model. |
+| `confidence` | `number` | `classifyUrgency` | Integer 0–100 representing the model's confidence in the urgency classification. |
+| `summary` | `string` | `generateSummary` | Final 2–3 sentence clinician-friendly summary incorporating symptoms and any follow-up context. |
+| `symptomRetryCount` | `number` | `validateSymptoms` | Number of extraction attempts completed so far. Incremented each time symptoms come back empty. |
+| `maxSymptomRetries` | `number` | Controller (at invocation, default `1`) | Upper bound on extraction retries before giving up and routing directly to summary. |
 
 ## API Endpoints
 
@@ -269,13 +312,29 @@ The database file (`medical_sessions.db`) is local runtime data and is added to 
 | Backend CORS allow-list | `http://localhost:5173` |
 | Backend → Ollama | `http://localhost:11434` |
 
+## What's Next/ Things left out
+
+- **Auth + session ownership** — Add JWT or session cookies so patients can only access their own sessions; prevents enumeration of other users' data via `sessionId`.
+- **Automated tests** — Unit tests for each graph node (mock Ollama responses), integration tests for the full graph, and contract tests for the API. The current codebase has zero test coverage.
+- **Streaming responses** — Stream the `generateSummary` output token-by-token to the frontend so users see progress during the longest LLM call instead of a spinner.
+- **Replace the custom checkpointer with LangGraph's built-in `SqliteSaver`** — Removes ~80 lines of custom code, adds proper thread/config ID semantics, and enables true graph resumption (re-entering the graph mid-run rather than manually re-calling nodes).
+
+## Trade-offs
+
+| Decision | What was chosen | What was traded away |
+|---|---|---|
+| **Custom SQLite checkpointer** | Simple, zero-dependency persistence that works offline | LangGraph's built-in `SqliteSaver` would handle thread/config IDs, serialization, and TTL automatically |
+| **Re-running nodes directly for follow-up** | `classifyUrgency` and `generateSummary` are called directly in the controller after follow-up answers arrive | Full graph replay via `graph.invoke` would keep all routing logic in one place and preserve complete traceability |
+| **Local Ollama (`llama3.2`)** | No API cost, no data leaves the machine, works offline | Requires local setup; model quality is lower than GPT-4-class models; no streaming |
+| **Confidence threshold hard-coded at 70** | Easy to reason about | Should be configurable per-deployment or per-symptom category |
+| **No authentication** | Simpler to develop and demo locally | Not production-ready; any caller can read or overwrite any session ID ||
+
 ## Notes and Known Limitations
 
 - The app depends on Ollama running locally with the `llama3.2` model available.
 - Ollama responses are parsed as JSON in several workflow nodes. The nodes use a regex to isolate the JSON object/array from any surrounding text, but highly malformed model output can still cause errors or fallback behavior.
-- Medical safety guardrails are prompt-based only; no clinical validation is performed.
 - There is no automated test suite configured.
-- Sessions are not automatically purged. A `cleanupOldSessions` helper exists in `sessionHelper.ts` but is not scheduled. For long-running deployments, wire it to a periodic job.
+- Sessions are not automatically purged. A `cleanupOldSessions` helper exists in `sessionHelper.ts` but is not scheduled.
 
 ## Why LangGraph Instead of a Simple Chain
 
