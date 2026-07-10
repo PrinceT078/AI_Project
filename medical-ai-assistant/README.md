@@ -140,7 +140,7 @@ flowchart TD
 
     validateSymptoms -->|"symptoms found"| classifyUrgency
     validateSymptoms -->|"no symptoms found & <br/> retryCount ≤ maxRetries"| extractSymptoms
-    validateSymptoms -->|"no symptoms & retries exhausted"| generateSummary
+    validateSymptoms -->|"no symptoms & <br/> retries exhausted"| generateSummary
 
     classifyUrgency --> checkFollowupRequired
 
