@@ -6,11 +6,24 @@ import { generateSummary } from "./nodes/generateSummary.ts";
 import { validateInput } from "./nodes/validateInput.ts";
 import { requiresFollowup } from "./nodes/requireFollowup.ts";
 import { askFollowup } from "./nodes/askFollowup.ts";
-import { ASK_FOLLOWUP, CLASSIFY_URGENCY, EXTRACT_SYMPTOMS, GENERATE_SUMMARY, REQUIRES_FOLLOWUP, VALIDATE_INPUT } from "../utils/constant.ts";
+import {
+  ASK_FOLLOWUP,
+  CLASSIFY_URGENCY,
+  EXTRACT_SYMPTOMS,
+  GENERATE_SUMMARY,
+  REQUIRES_FOLLOWUP,
+  VALIDATE_INPUT,
+  VALIDATE_SYMPTOMS,
+} from "../utils/constant.ts";
+import {
+  shouldRetrySymptomExtraction,
+  validateSymptoms,
+} from "./nodes/validateSymptoms.ts";
 
 const workflow = new StateGraph(GraphStateAnnotation);
 workflow.addNode(VALIDATE_INPUT, validateInput);
 workflow.addNode(EXTRACT_SYMPTOMS, extractSymptoms);
+workflow.addNode(VALIDATE_SYMPTOMS, validateSymptoms);
 workflow.addNode(REQUIRES_FOLLOWUP, requiresFollowup);
 workflow.addNode(ASK_FOLLOWUP, askFollowup);
 workflow.addNode(CLASSIFY_URGENCY, classifyUrgency);
@@ -18,7 +31,43 @@ workflow.addNode(GENERATE_SUMMARY, generateSummary);
 
 workflow.addEdge(START, VALIDATE_INPUT);
 workflow.addEdge(VALIDATE_INPUT, EXTRACT_SYMPTOMS);
-workflow.addEdge(EXTRACT_SYMPTOMS, CLASSIFY_URGENCY);
+workflow.addEdge(EXTRACT_SYMPTOMS, VALIDATE_SYMPTOMS);
+
+// workflow.addConditionalEdges(
+//   VALIDATE_SYMPTOMS,
+//   (state) =>
+//     shouldRetrySymptomExtraction(state) ? EXTRACT_SYMPTOMS : CLASSIFY_URGENCY,
+//   [EXTRACT_SYMPTOMS, CLASSIFY_URGENCY],
+// );
+
+// workflow.addConditionalEdges(
+//   VALIDATE_SYMPTOMS,
+//   (state) => {
+//     if (state.requiresFollowup && state.symptoms.length === 0) {
+//       return ASK_FOLLOWUP;
+//     }
+
+//     return shouldRetrySymptomExtraction(state)
+//       ? EXTRACT_SYMPTOMS
+//       : CLASSIFY_URGENCY;
+//   },
+//   [EXTRACT_SYMPTOMS, ASK_FOLLOWUP, CLASSIFY_URGENCY],
+// );
+
+workflow.addConditionalEdges(
+  VALIDATE_SYMPTOMS,
+  (state) => {
+    const c = shouldRetrySymptomExtraction(state);
+    if (c) {
+      return EXTRACT_SYMPTOMS;
+    } else if (!c && state.symptoms.length > 0) {
+      return CLASSIFY_URGENCY;
+    }
+    return GENERATE_SUMMARY;
+  },
+  [GENERATE_SUMMARY, EXTRACT_SYMPTOMS, CLASSIFY_URGENCY],
+);
+
 workflow.addEdge(CLASSIFY_URGENCY, REQUIRES_FOLLOWUP);
 
 workflow.addConditionalEdges(

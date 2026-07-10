@@ -1,4 +1,3 @@
-import { Ollama } from "ollama";
 import type { GraphStateAnnotation } from "../state.js";
 import { ollama } from "../../utils/ollamaClient.ts";
 import { checkpointer } from "../../db/checkpointer.ts";
@@ -18,6 +17,7 @@ export async function generateSummary(
         Urgency Classification: ${state.urgency}
         Confidence Score: ${state.confidence}%
         Rules:
+        - If No primary symptoms are found, put urgency as LOW, cofidence score as 0% and summary stating that no symptom could be found.
         - Use ONLY the information provided above.
         - If Additional info is provided, incorporate it into the summary.
         - Do NOT infer or mention possible diagnoses, causes, or treatments.

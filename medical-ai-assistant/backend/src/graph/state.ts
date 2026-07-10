@@ -10,4 +10,6 @@ export const GraphStateAnnotation = Annotation.Root({
   urgency: Annotation<"LOW" | "MEDIUM" | "HIGH">,
   confidence: Annotation<number>,
   summary: Annotation<string>,
+  symptomRetryCount: Annotation<number>,
+  maxSymptomRetries: Annotation<number>,
 });

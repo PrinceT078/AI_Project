@@ -12,9 +12,9 @@ export async function classifyUrgency(
   //     Return response in JSON format :
   //     {"urgency": "LOW|MEDIUM|HIGH", "confidence": 0-100}
   //     `;
-  if(state.symptoms.length == 0){
-    throw new Error("No symptoms found");
-  }
+  // if(state.symptoms.length == 0){
+  //   throw new Error("No symptoms found");
+  // }
   
   const prompt = `You are a medical triage assistant.
 
@@ -43,7 +43,9 @@ export async function classifyUrgency(
   });
 
   try {
-    const parsed = JSON.parse(response.response);
+    const jsonMatch = response.response.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : response.response;
+    const parsed = JSON.parse(jsonStr);
     console.log("Parsed urgency classification:", parsed);
     return {
       ...state,

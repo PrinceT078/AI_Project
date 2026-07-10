@@ -12,8 +12,8 @@ export function saveSession(sessionId: string, state: any) {
   console.log(`Saving session ${sessionId}`);
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO sessions 
-    (id, patientInput, symptoms, requiresFollowup, followupQuestions, followupAnswers, urgency, confidence, summary, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, patientInput, symptoms, requiresFollowup, followupQuestions, followupAnswers, urgency, confidence, summary, symptomRetryCount, maxSymptomRetries, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const now = new Date();
 
@@ -25,7 +25,7 @@ export function saveSession(sessionId: string, state: any) {
     minute: "2-digit",
     second: "2-digit",
   }).format(now);
-  
+
   stmt.run(
     sessionId,
     state.patientInput,
@@ -36,6 +36,8 @@ export function saveSession(sessionId: string, state: any) {
     state.urgency,
     state.confidence,
     state.summary,
+    state.symptomRetryCount,
+    state.maxSymptomRetries,
     formattedDate,
   );
   // sessions.set(sessionId, { state, createdAt: new Date() });
@@ -58,6 +60,8 @@ export function getSession(sessionId: string) {
     urgency: row.urgency,
     confidence: row.confidence,
     summary: row.summary,
+    symptomRetryCount: row.symptomRetryCount ?? 0,
+    maxSymptomRetries: row.maxSymptomRetries ?? 1,
   };
   // return sessions.get(sessionId)?.state;
 }

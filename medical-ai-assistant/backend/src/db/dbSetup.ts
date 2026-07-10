@@ -20,6 +20,8 @@ export function initializeDb() {
       urgency TEXT,
       confidence INTEGER,
       summary TEXT,
+      symptomRetryCount INTEGER DEFAULT 0,
+      maxSymptomRetries INTEGER DEFAULT 1,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );

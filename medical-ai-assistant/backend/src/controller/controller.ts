@@ -1,10 +1,8 @@
 import { type Request, type Response } from "express";
 import { Ollama } from "ollama";
 import { graph } from "../graph/graph.ts";
-import { validateInput } from "../graph/nodes/validateInput.ts";
 import { v4 as uuidv4 } from "uuid";
 import {
-  clearSession,
   getSession,
   saveSession,
 } from "../utils/sessionHelper.ts";
@@ -36,12 +34,12 @@ class OllamaController {
       });
 
       console.log(`Ollama response: ${JSON.stringify(response)}`);
-      return response.response;
-    } catch (error) {
+      return res.json({ response: response.response });
+    } catch (error: any) {
       console.error(
         `Error occurred while generating Ollama response: ${error}`,
       );
-      throw error;
+      return res.status(500).json({ error: error.message || "Internal Server Error" });
     }
   }
 
@@ -61,6 +59,8 @@ class OllamaController {
         urgency: "MEDIUM",
         confidence: 0,
         summary: "",
+        symptomRetryCount: 0,
+        maxSymptomRetries: 1,
       });
 
       saveSession(sessionId, result);
@@ -126,11 +126,11 @@ class OllamaController {
         confidence: finalResult.confidence,
         summary: finalResult.summary,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         `Error occurred while processing follow-up answers: ${error}`,
       );
-      throw new Error("Error processing follow-up answers: " + error);
+      return res.status(500).json({ error: error.message || "Error processing follow-up answers" });
     }
   }
 }
