@@ -139,8 +139,8 @@ flowchart TD
     extractSymptoms --> validateSymptoms
 
     validateSymptoms -->|"symptoms found"| classifyUrgency
-    validateSymptoms -->|"no symptoms · retryCount ≤ maxRetries"| extractSymptoms
-    validateSymptoms -->|"no symptoms · retries exhausted"| generateSummary
+    validateSymptoms -->|"no symptoms found & <br/> retryCount ≤ maxRetries"| extractSymptoms
+    validateSymptoms -->|"no symptoms & retries exhausted"| generateSummary
 
     classifyUrgency --> checkFollowupRequired
 
@@ -328,13 +328,6 @@ The database file (`medical_sessions.db`) is local runtime data and is added to 
 | **Local Ollama (`llama3.2`)** | No API cost, no data leaves the machine, works offline | Requires local setup; model quality is lower than GPT-4-class models; no streaming |
 | **Confidence threshold hard-coded at 70** | Easy to reason about | Should be configurable per-deployment or per-symptom category |
 | **No authentication** | Simpler to develop and demo locally | Not production-ready; any caller can read or overwrite any session ID ||
-
-## Notes and Known Limitations
-
-- The app depends on Ollama running locally with the `llama3.2` model available.
-- Ollama responses are parsed as JSON in several workflow nodes. The nodes use a regex to isolate the JSON object/array from any surrounding text, but highly malformed model output can still cause errors or fallback behavior.
-- There is no automated test suite configured.
-- Sessions are not automatically purged. A `cleanupOldSessions` helper exists in `sessionHelper.ts` but is not scheduled.
 
 ## Why LangGraph Instead of a Simple Chain
 
