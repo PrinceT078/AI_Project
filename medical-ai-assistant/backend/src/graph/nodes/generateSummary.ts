@@ -8,8 +8,6 @@ export async function generateSummary(
 ) {
   console.log("Generating summary");
 
-  // No symptoms found — skip the LLM entirely and return a deterministic response.
-  // This avoids the model hallucinating from the few-shot examples in the prompt.
   if (!state.symptoms || state.symptoms.length === 0) {
     const result = {
       ...state,

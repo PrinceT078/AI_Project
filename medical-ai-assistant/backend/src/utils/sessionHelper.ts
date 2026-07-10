@@ -80,5 +80,4 @@ export function cleanupOldSessions(hoursOld: number = 24) {
   stmt.run(hoursOld);
 }
 
-// Call periodically (e.g., every hour in your main app)
 setInterval(() => cleanupOldSessions(24), 3600000);

@@ -106,14 +106,12 @@ class OllamaController {
         return res.status(404).json({ error: "Session expired" });
       }
 
-      // Update state with answers and resume graph
       state = {
         ...state,
         followupAnswers,
       };
       // patientInput: `${state.patientInput} Additional info: ${followupAnswers.join(", ")}`,
 
-      // Re-run from classifyUrgency onwards
       const result = await classifyUrgency(state);
       const finalResult = await generateSummary(result);
 

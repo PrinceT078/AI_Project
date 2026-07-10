@@ -25,7 +25,6 @@ export class SqliteCheckpointer {
     `);
   }
 
-  // Save checkpoint at a key node
   saveCheckpoint(sessionId: string, nodeId: string, state: typeof GraphStateAnnotation.State) {
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO checkpoints (sessionId, nodeId, state, timestamp)
@@ -36,7 +35,6 @@ export class SqliteCheckpointer {
     console.log(`✓ Checkpoint saved: ${nodeId}`);
   }
 
-  // Retrieve checkpoint to resume from
   getCheckpoint(sessionId: string, nodeId: string): typeof GraphStateAnnotation.State | null {
     const stmt = db.prepare(`
       SELECT state FROM checkpoints 
@@ -49,7 +47,6 @@ export class SqliteCheckpointer {
     return JSON.parse(row.state);
   }
 
-  // Get latest checkpoint for a session
   getLatestCheckpoint(sessionId: string) {
     const stmt = db.prepare(`
       SELECT nodeId, state FROM checkpoints 
@@ -67,7 +64,6 @@ export class SqliteCheckpointer {
     };
   }
 
-  // Clear checkpoints for a session
   clearCheckpoints(sessionId: string) {
     const stmt = db.prepare(`DELETE FROM checkpoints WHERE sessionId = ?`);
     stmt.run(sessionId);

@@ -4,10 +4,8 @@ import path from "path";
 const dbPath = path.join(process.cwd(), "medical_sessions.db");
 export const db: any = new Database(dbPath);
 
-// Enable foreign keys
 db.pragma("foreign_keys = ON");
 
-// Create tables
 export function initializeDb() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
