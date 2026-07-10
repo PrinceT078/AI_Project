@@ -7,6 +7,21 @@ export async function generateSummary(
   state: typeof GraphStateAnnotation.State,
 ) {
   console.log("Generating summary");
+
+  // No symptoms found — skip the LLM entirely and return a deterministic response.
+  // This avoids the model hallucinating from the few-shot examples in the prompt.
+  if (!state.symptoms || state.symptoms.length === 0) {
+    const result = {
+      ...state,
+      urgency: "LOW" as const,
+      confidence: 0,
+      summary:
+        "No medical symptoms were identified from the patient's input. Please provide a clear description of your symptoms for a proper assessment.",
+    };
+    checkpointer.saveCheckpoint(state.sessionId, GENERATE_SUMMARY, result);
+    return result;
+  }
+
   const hasFollowup = state.followupAnswers && state.followupAnswers.length > 0;
   const followupContext = hasFollowup
     ? `Additional information: ${state.followupAnswers.join(", ")}`

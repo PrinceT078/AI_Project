@@ -38,7 +38,7 @@ export async function validateSymptoms(
     return {
       ...state,
       symptoms: [],
-      symptomRetryCount: retryCount,
+      symptomRetryCount: retryCount + 1,
     };
   }
 
