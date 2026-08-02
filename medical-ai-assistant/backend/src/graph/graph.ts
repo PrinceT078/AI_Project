@@ -3,6 +3,7 @@ import { GraphStateAnnotation } from "./state.js";
 import { extractSymptoms } from "./nodes/extractSymptoms.js";
 import { classifyUrgency } from "./nodes/classifyUrgency.ts";
 import { generateSummary } from "./nodes/generateSummary.ts";
+import { retrieveGuidance } from "./nodes/retrieveGuidance.ts";
 import { validateInput } from "./nodes/validateInput.ts";
 import { requiresFollowup } from "./nodes/requireFollowup.ts";
 import { askFollowup } from "./nodes/askFollowup.ts";
@@ -12,6 +13,7 @@ import {
   EXTRACT_SYMPTOMS,
   GENERATE_SUMMARY,
   REQUIRES_FOLLOWUP,
+  RETRIEVE_GUIDANCE,
   VALIDATE_INPUT,
   VALIDATE_SYMPTOMS,
 } from "../utils/constant.ts";
@@ -26,6 +28,7 @@ workflow.addNode(EXTRACT_SYMPTOMS, extractSymptoms);
 workflow.addNode(VALIDATE_SYMPTOMS, validateSymptoms);
 workflow.addNode(REQUIRES_FOLLOWUP, requiresFollowup);
 workflow.addNode(ASK_FOLLOWUP, askFollowup);
+workflow.addNode(RETRIEVE_GUIDANCE, retrieveGuidance);
 workflow.addNode(CLASSIFY_URGENCY, classifyUrgency);
 workflow.addNode(GENERATE_SUMMARY, generateSummary);
 
@@ -61,13 +64,14 @@ workflow.addConditionalEdges(
     if (c) {
       return EXTRACT_SYMPTOMS;
     } else if (!c && state.symptoms.length > 0) {
-      return CLASSIFY_URGENCY;
+      return RETRIEVE_GUIDANCE;
     }
     return GENERATE_SUMMARY;
   },
-  [GENERATE_SUMMARY, EXTRACT_SYMPTOMS, CLASSIFY_URGENCY],
+  [GENERATE_SUMMARY, EXTRACT_SYMPTOMS, RETRIEVE_GUIDANCE],
 );
 
+workflow.addEdge(RETRIEVE_GUIDANCE, CLASSIFY_URGENCY);
 workflow.addEdge(CLASSIFY_URGENCY, REQUIRES_FOLLOWUP);
 
 workflow.addConditionalEdges(

@@ -43,7 +43,9 @@ export function saveSession(sessionId: string, state: any) {
   // sessions.set(sessionId, { state, createdAt: new Date() });
 }
 
-export function getSession(sessionId: string) {
+export function getSession(
+  sessionId: string,
+): typeof GraphStateAnnotation.State | null {
   console.log(`Retrieving session ${sessionId}`);
   const stmt = db.prepare(`SELECT * FROM sessions WHERE id = ?`);
   const row = stmt.get(sessionId) as any;
@@ -53,10 +55,12 @@ export function getSession(sessionId: string) {
   return {
     sessionId: row.id,
     patientInput: row.patientInput,
-    symptoms: JSON.parse(row.symptoms),
+    symptoms: JSON.parse(row.symptoms) as string[],
+    retrievedGuidelines: [] as { id: string; text: string; score: number }[],
+    citedGuidelineIds: [] as string[],
     requiresFollowup: row.requiresFollowup === 1,
-    followupQuestions: JSON.parse(row.followupQuestions || "[]"),
-    followupAnswers: JSON.parse(row.followupAnswers || "[]"),
+    followupQuestions: JSON.parse(row.followupQuestions || "[]") as string[],
+    followupAnswers: JSON.parse(row.followupAnswers || "[]") as string[],
     urgency: row.urgency,
     confidence: row.confidence,
     summary: row.summary,

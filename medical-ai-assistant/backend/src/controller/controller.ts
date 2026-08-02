@@ -8,6 +8,7 @@ import {
 } from "../utils/sessionHelper.ts";
 import { classifyUrgency } from "../graph/nodes/classifyUrgency.ts";
 import { generateSummary } from "../graph/nodes/generateSummary.ts";
+import { retrieveGuidelines } from "../retrieval/retriever.ts";
 import { checkpointer } from "../db/checkpointer.ts";
 
 class OllamaController {
@@ -53,6 +54,8 @@ class OllamaController {
         patientInput,
         sessionId,
         symptoms: [],
+        retrievedGuidelines: [],
+        citedGuidelineIds: [],
         requiresFollowup: false,
         followupQuestions: [],
         followupAnswers: [],
@@ -106,13 +109,14 @@ class OllamaController {
         return res.status(404).json({ error: "Session expired" });
       }
 
-      state = {
+      const updatedState = {
         ...state,
         followupAnswers,
+        retrievedGuidelines: await retrieveGuidelines(state.symptoms ?? [], 3),
       };
       // patientInput: `${state.patientInput} Additional info: ${followupAnswers.join(", ")}`,
 
-      const result = await classifyUrgency(state);
+      const result = await classifyUrgency(updatedState);
       const finalResult = await generateSummary(result);
 
       // clearSession(sessionId);

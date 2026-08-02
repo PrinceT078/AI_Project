@@ -24,15 +24,29 @@ export async function generateSummary(
   const followupContext = hasFollowup
     ? `Additional information: ${state.followupAnswers.join(", ")}`
     : "";
+
+  const citedGuidelines = (state.retrievedGuidelines ?? []).filter((guideline) =>
+    (state.citedGuidelineIds ?? []).includes(guideline.id),
+  );
+  const groundingContext =
+    citedGuidelines.length > 0
+      ? citedGuidelines
+          .map((guideline) => `${guideline.id}: ${guideline.text}`)
+          .join(" | ")
+      : "No matching guideline found; clinician review recommended.";
+
   const prompt = `Generate a concise clinician-friendly summary based only on the provided information.
         Primary Symptoms: ${state.symptoms}
         Follow-up Information: ${followupContext}
         Urgency Classification: ${state.urgency}
         Confidence Score: ${state.confidence}%
+        Grounding Context: ${groundingContext}
         Rules:
         - If No primary symptoms are found, put urgency as LOW, cofidence score as 0% and summary stating that no symptom could be found.
         - Use ONLY the information provided above.
         - If Additional info is provided, incorporate it into the summary.
+        - If grounding context includes guideline IDs, mention the guideline IDs and relevant text in the summary.
+        - If no guideline matched, include this exact sentence: "No matching guideline found; clinician review recommended."
         - Do NOT infer or mention possible diagnoses, causes, or treatments.
         - Do NOT provide medical advice or recommendations.
         - Do NOT use markdown, bullet points, headings, or special formatting.
@@ -58,9 +72,16 @@ export async function generateSummary(
     prompt,
   });
 
+  const groundingSentence =
+    citedGuidelines.length > 0
+      ? `Urgency grounding: ${citedGuidelines
+          .map((guideline) => `${guideline.id} (${guideline.text})`)
+          .join("; ")}.`
+      : "No matching guideline found; clinician review recommended.";
+
   const result = {
     ...state,
-    summary: response.response,
+    summary: `${response.response.trim()} ${groundingSentence}`.trim(),
   };
   checkpointer.saveCheckpoint(state.sessionId, GENERATE_SUMMARY, result);
   return result;

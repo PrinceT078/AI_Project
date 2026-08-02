@@ -8,6 +8,7 @@ A full-stack medical triage assistant that collects patient-reported symptoms, u
 - Express + Node.js + TypeScript backend API.
 - LangGraph stateful workflow for symptom processing with retry and conditional routing.
 - Local Ollama inference using the `llama3.2` model.
+- Lightweight local RAG grounding with synthetic triage guidelines and citations.
 - SQLite persistence for assessment sessions and graph checkpoints.
 - Urgency classification: `LOW`, `MEDIUM`, or `HIGH`.
 - Clinician-friendly summary generation.
@@ -29,10 +30,14 @@ medical-ai-assistant/
           validateInput.ts    # Rejects empty input
           extractSymptoms.ts  # LLM symptom extraction
           validateSymptoms.ts # Validates extracted symptoms, handles retries
+          retrieveGuidance.ts # Retrieves top synthetic guideline matches
           classifyUrgency.ts  # LLM urgency + confidence classification
-          requireFollowup.ts  # Decides if follow-up is needed (confidence < 70)
+          requireFollowup.ts  # Decides if follow-up is needed (low confidence or ungrounded non-LOW case)
           askFollowup.ts      # Generates follow-up questions
           generateSummary.ts  # Produces final clinical summary
+      retrieval/
+        guidelines.ts         # Synthetic demo triage guideline corpus
+        retriever.ts          # Local embeddings + cosine similarity search
       db/
         dbSetup.ts            # SQLite schema and initialization
         checkpointer.ts       # Graph checkpoint storage (save/resume nodes)
@@ -138,14 +143,15 @@ flowchart TD
 
     extractSymptoms --> validateSymptoms
 
-    validateSymptoms -->|"symptoms found"| classifyUrgency
+    validateSymptoms -->|"symptoms found"| retrieveGuidance
     validateSymptoms -->|"no symptoms found & <br/> retryCount ≤ maxRetries"| extractSymptoms
     validateSymptoms -->|"no symptoms & <br/> retries exhausted"| generateSummary
 
+    retrieveGuidance --> classifyUrgency
     classifyUrgency --> checkFollowupRequired
 
-    checkFollowupRequired -->|"confidence ≥ 70"| generateSummary
-    checkFollowupRequired -->|"confidence < 70"| askFollowup
+    checkFollowupRequired -->|"confidence ≥ 70 and grounded"| generateSummary
+    checkFollowupRequired -->|"confidence < 70 OR <br/>non-LOW with no retrieved guideline"| askFollowup
 
     askFollowup --> END(["__end__"])
     generateSummary --> END
@@ -173,11 +179,14 @@ LangGraph Workflow
     │       │
     │  (symptoms found)
     │       │
+    ├─ retrieveGuidance
+    │       │
     ├─ classifyUrgency
     │       │
     ├─ requiresFollowup-----------
     │       │                    |
-    │  confidence ≥ 70     confidence < 70
+    │  confidence ≥ 70 and grounded
+    │                 confidence < 70 OR non-LOW without retrieval grounding
     │       │                    │
     ├─ generateSummary     askFollowup
     │       │                    │
@@ -205,9 +214,11 @@ The graph state is defined in [backend/src/graph/state.ts](backend/src/graph/sta
 | `patientInput` | `string` | `validateInput` | Raw symptom description entered by the patient, trimmed of whitespace. |
 | `sessionId` | `string` | Controller (at invocation) | UUID that identifies the session across the HTTP boundary. |
 | `symptoms` | `string[]` | `extractSymptoms`, `validateSymptoms` | Symptom strings extracted from `patientInput`. Empty until extraction succeeds. |
+| `retrievedGuidelines` | `{id: string; text: string; score: number}[]` | `retrieveGuidance` | Top similarity-matched synthetic guideline snippets used to ground urgency classification. |
+| `citedGuidelineIds` | `string[]` | `classifyUrgency` | Guideline IDs cited by the urgency classifier as evidence for its decision. |
 | `followupQuestions` | `string[]` | `askFollowup` | 1–3 clarifying questions generated when confidence is below 70. |
 | `followupAnswers` | `string[]` | Controller (`processFollowupAnswers`) | Patient's answers to the follow-up questions, submitted via `POST /followup/answers`. |
-| `requiresFollowup` | `boolean` | `checkFollowupRequired` | `true` when `confidence < 70`; drives the conditional edge after urgency classification. |
+| `requiresFollowup` | `boolean` | `checkFollowupRequired` | `true` when `confidence < 70`, or when no guideline was retrieved for a non-LOW urgency case. |
 | `urgency` | `"LOW" \| "MEDIUM" \| "HIGH"` | `classifyUrgency` | Urgency tier returned by the model. |
 | `confidence` | `number` | `classifyUrgency` | Integer 0–100 representing the model's confidence in the urgency classification. |
 | `summary` | `string` | `generateSummary` | Final 2–3 sentence clinician-friendly summary incorporating symptoms and any follow-up context. |
@@ -286,10 +297,18 @@ The backend graph runs these steps in order:
 1. **validateInput** — Rejects empty input immediately.
 2. **extractSymptoms** — Uses Ollama to extract a JSON array of symptoms from free-text.
 3. **validateSymptoms** — Normalizes symptoms. If none are found and the retry limit is not reached, loops back to `extractSymptoms`.
-4. **classifyUrgency** — Uses Ollama to classify `LOW`, `MEDIUM`, or `HIGH` urgency with a 0–100 confidence score.
-5. **requiresFollowup** — If confidence is below `70`, routes to follow-up. Otherwise routes directly to summary.
-6. **askFollowup** (conditional) — Generates 1–3 clarifying questions and checkpoints the state. Returns questions to the client; waits for answers via `POST /followup/answers`.
-7. **generateSummary** — Produces a 2–3 sentence clinician-friendly summary and saves a checkpoint.
+4. **retrieveGuidance** — Uses local embeddings (`Xenova/all-MiniLM-L6-v2`) and cosine similarity to fetch top synthetic guideline snippets (threshold `0.35`).
+5. **classifyUrgency** — Uses Ollama to classify `LOW`, `MEDIUM`, or `HIGH` urgency with a 0–100 confidence score and returns cited guideline IDs.
+6. **requiresFollowup** — Routes to follow-up if confidence is below `70`, or if urgency is not `LOW` and no guideline grounding was retrieved.
+7. **askFollowup** (conditional) — Generates 1–3 clarifying questions and checkpoints the state. Returns questions to the client; waits for answers via `POST /followup/answers`.
+8. **generateSummary** — Produces a 2–3 sentence clinician-friendly summary including grounding/citation context and saves a checkpoint.
+
+## RAG / Grounding
+
+- The triage grounding corpus is intentionally **synthetic/fabricated demo data** (not real clinical guidance).
+- The backend embeds guideline snippets and symptom queries locally with `@xenova/transformers` using `Xenova/all-MiniLM-L6-v2`.
+- Retrieval is in-memory cosine similarity over the small corpus, returning top matches above a `0.35` threshold.
+- If no guideline is retrieved for a non-`LOW` urgency case, the flow escalates to follow-up/clinician review instead of returning a high-confidence ungrounded result.
 
 ## Database
 
